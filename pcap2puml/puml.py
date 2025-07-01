@@ -1,3 +1,6 @@
+import sys
+from datetime import datetime
+
 """
 The purpose of this module is to represent and create PlantUML Sequence Diagrams (http://plantuml.com/sequence-diagram)
 
@@ -12,6 +15,7 @@ class SeqEvent(object):
 	'''
 	Represents a sequence event from a PlantUML Sequence Diagram.
 	It has the following properties
+		- timestamp
 		- event_type: takes a default value, but can be overridden just in case we want to add some non-message events
 		- participants
 		- arrow
@@ -19,13 +23,17 @@ class SeqEvent(object):
 		- sequence_number
 		- notes
 	'''
+	_timestamp_min = sys.float_info.max;
+
 	def __init__(self, participants, message_lines, arrow=None, timestamp=None, sequence_number=None, notes=None, event_type=SEQEVENT_TYPE_MESSAGE):
+		SeqEvent._timestamp_min = min(float(timestamp),SeqEvent._timestamp_min)
+		self.timestamp = float(timestamp)
 		self.event_type = event_type
 		self.message_lines = message_lines
 		self.participants = participants
 		self.arrow = arrow
 		self.sequence_number = sequence_number
-		self.notes = notes
+		self.notes = notes		
 
 	def __repr__(self):
 		return str({
@@ -69,20 +77,23 @@ class SeqDiagram(object):
 		arrow_str = '{}{}{}'.format(arrow_shaft, arrow_color_str, arrow_head)
 		return arrow_str
 
-	def __format_message_line(text, color=None, bold=False, underlined=False):
+	def __format_message_lines(timestamp, text, color=None, bold=False, underlined=False):
 		formatted_str = text
+		timestamp_str = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
+		time = timestamp - SeqEvent._timestamp_min
 		if(color != None):
-			formatted_str = '<font color={}>{}</font>'.format(color, formatted_str)
+			formatted_str = '<font color="blue">{} | {}</font>\\n<font color={}>{}</font>'.format(timestamp_str,time,color,formatted_str)
 		if(bold == True):
-			formatted_str = '<b>{}</b>'.format(formatted_str)
+			formatted_str = '<font color="blue">{}</font>\\n<b>{}</b>'.format(timestamp_str,formatted_str)
 		if(underlined == True):
-			formatted_str = '<u>{}</u>'.format(formatted_str)
+			formatted_str = '<font color="blue">{}</font>\\n<u>{}</u>'.format(timestamp_str,formatted_str)
 		return formatted_str
 
-	def __get_message_line_str(message_line):
+	def __get_message_lines_str(timestamp,message_line):
 		message_line_str = message_line.get('formatted')
 		if(message_line_str == None):
-			message_line_str = SeqDiagram.__format_message_line(
+			message_line_str = SeqDiagram.__format_message_lines(
+				timestamp,
 				message_line['text'], 
 				message_line.get('color'), 
 				message_line.get('bold'), 
@@ -100,7 +111,7 @@ class SeqDiagram(object):
 		for seqevent in self.seqevents:
 			(src_str, dst_str) = SeqDiagram.__get_participants_str(seqevent.participants)
 			arrow_str = SeqDiagram.__get_arrow_str(seqevent.arrow)
-			message_line_strs = [ SeqDiagram.__get_message_line_str(m) for m in seqevent.message_lines ]
+			message_line_strs = [ SeqDiagram.__get_message_lines_str(seqevent.timestamp,m) for m in seqevent.message_lines ]
 			message_str = '\\n'.join(message_line_strs)
 			puml_main_line = '{} {} {}: {}'.format(src_str, arrow_str, dst_str, message_str)
 			if(seqevent.sequence_number != None):
