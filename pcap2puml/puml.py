@@ -56,9 +56,10 @@ class SeqDiagram(object):
 		- notes
 		- event_type: takes a default value, but can be overridden just in case we want to add some non-message events
 	'''
-	def __init__(self, seqevents, participants=None):
+	def __init__(self, seqevents, participants=None, seqNo=False):
 		self.seqevents = seqevents
 		self.participants = participants
+		self.seqNo = seqNo;
 
 	def __get_participants_str(participants):
 		(src, dst) = participants
@@ -119,7 +120,7 @@ class SeqDiagram(object):
 			puml_main_line = '{} {} {}: {}'.format(src_str, arrow_str, dst_str, message_str)
 			if(seqevent.timestamp != None):
 				puml_lines.append(SeqDiagram.__get_merge_tag_str(seqevent.timestamp))
-			if(seqevent.sequence_number != None):
+			if(self.seqNo and (seqevent.sequence_number != None)):
 				puml_lines.append(SeqDiagram.__get_sequence_number_str(seqevent.sequence_number))
 			puml_lines.append(puml_main_line)
 			puml_lines.append('')
