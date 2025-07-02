@@ -106,6 +106,9 @@ class SeqDiagram(object):
 			sequence_number_format = '<b>[Frame #]</b>'
 		return 'autonumber {} 1 "{}"'.format(sequence_number['number'], sequence_number_format)
 
+	def __get_merge_tag_str(timestamp):
+		return '\'@@ {} @@'.format(datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f'));
+
 	def get_puml_lines(self):
 		puml_lines = ['@startuml', '']
 		for seqevent in self.seqevents:
@@ -114,6 +117,8 @@ class SeqDiagram(object):
 			message_line_strs = [ SeqDiagram.__get_message_lines_str(seqevent.timestamp,m) for m in seqevent.message_lines ]
 			message_str = '\\n'.join(message_line_strs)
 			puml_main_line = '{} {} {}: {}'.format(src_str, arrow_str, dst_str, message_str)
+			if(seqevent.timestamp != None):
+				puml_lines.append(SeqDiagram.__get_merge_tag_str(seqevent.timestamp))
 			if(seqevent.sequence_number != None):
 				puml_lines.append(SeqDiagram.__get_sequence_number_str(seqevent.sequence_number))
 			puml_lines.append(puml_main_line)

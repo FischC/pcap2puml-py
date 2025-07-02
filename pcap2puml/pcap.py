@@ -14,6 +14,8 @@ try:
 except ImportError:
 	pass
 from pcap2puml import puml
+import re
+from collections import defaultdict
 
 def has_layer(packet, layer_name):
     return layer_name in map(lambda layer: layer._layer_name, packet.layers)
@@ -23,9 +25,10 @@ class VoipTemplate(object):
 	This is a template to create ,
 	which we can use to create a a puml.SeqDiag object out of a list of PCAP packets as parsed by pyshark
 	'''
-	def __init__(self, nodealiases={}):
+	def __init__(self, nodealiases={}, sipfields=None):
 		self.__call_ids = {}
 		self.nodealiases = nodealiases
+		self.sipfields = sipfields
 
 	CALL_ID_COLORS = ['red', 'blue', 'green', 'purple', 'brown', 'magenta', 'aqua', 'orange']
 
@@ -75,6 +78,12 @@ class VoipTemplate(object):
 	def get_timestamp(self, packet):
 		return packet.sniff_timestamp
 
+	def parse_all_sip_headers(self,header_string):
+		# Match "Header-Name: value" up to next header or end of string
+		pattern = r'(\b[\w\-]+):\s*(.*?)(?=\s+[\w\-]+:\s|$)'
+		matches = re.findall(pattern, header_string)
+		return [(key.strip(), value.strip()) for key, value in matches]
+
 	def get_message_lines(self, packet):
 		sip = packet.sip
 		if(sip.get_field('status_code') == None):
@@ -83,11 +92,19 @@ class VoipTemplate(object):
 			 main_line = {'text': sip.get_field('status_line'), 'color': self.get_message_color(packet)}
 		message_lines = [main_line]
 		sip_fields = ['call_id', 'from_user', 'to_user', 'p_asserted_identity', 'sdp_connection_info', 'sdp_media']
-		for sip_field in sip_fields:
+		all_headers = self.parse_all_sip_headers(sip.msg_hdr);
+		if(self.sipfields!=None):
+			sip_fields = sip_fields + self.sipfields
+		for sip_field in sip_fields:			
 			field_value = sip.get_field(sip_field)
 			if(field_value != None):
 				line_text = '{}: {}'.format(sip_field, field_value)
 				message_lines.append({'text': line_text})
+			else:
+				for key, value in all_headers:
+					if(key==sip_field):
+						line_text = '{}: {}'.format(key, value)
+						message_lines.append({'text': line_text})
 		sdp_media_attrs = sip.get_field('sdp_media_attr')
 		if(sdp_media_attrs != None):
 			for sdp_media_attr in sdp_media_attrs.all_fields:
