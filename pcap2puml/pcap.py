@@ -25,10 +25,11 @@ class VoipTemplate(object):
 	This is a template to create ,
 	which we can use to create a a puml.SeqDiag object out of a list of PCAP packets as parsed by pyshark
 	'''
-	def __init__(self, nodealiases={}, sipfields=None):
+	def __init__(self, nodealiases={}, sipfields=[], body4methods=[]):
 		self.__call_ids = {}
 		self.nodealiases = nodealiases
 		self.sipfields = sipfields
+		self.body4methods = body4methods
 
 	CALL_ID_COLORS = ['red', 'blue', 'green', 'purple', 'brown', 'magenta', 'aqua', 'orange']
 
@@ -84,6 +85,19 @@ class VoipTemplate(object):
 		matches = re.findall(pattern, header_string)
 		return [(key.strip(), value.strip()) for key, value in matches]
 
+	def add_content(self,sip):
+		body_text = "<<<empty>>>"
+		if hasattr(sip, 'msg_body'):
+			hex_body = sip.msg_body.replace(':', '')
+			try:
+				body_bytes = bytes.fromhex(hex_body)
+				body_text = body_bytes.decode('utf-8', errors='replace')
+				body_text = re.sub(r'\r\n?$','', body_text)
+				body_text = re.sub(r'\r\n?',r'\\n', body_text)				
+			except Exception as e:
+				pass
+		return ('\nnote right: ' + body_text)
+
 	def get_message_lines(self, packet):
 		sip = packet.sip
 		if(sip.get_field('status_code') == None):
@@ -111,6 +125,12 @@ class VoipTemplate(object):
 				if(sdp_media_attr.showname_value in ['sendrecv', 'sendonly', 'recvonly', 'inactive']):
 					line_text = sdp_media_attr.showname
 					message_lines.append({'text': line_text})
+
+		if hasattr(packet.sip, 'Method'):
+			for value in self.body4methods:
+				if(packet.sip.Method==value):
+					message_lines.append({'text': self.add_content(packet.sip)})
+
 		return message_lines
 
 	def packet_to_seqevents(self, packet):
